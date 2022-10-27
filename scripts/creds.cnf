@@ -1,0 +1,26 @@
+[DEFAULT]
+MTSName:      node-
+endNodeName:  endnode-
+
+[GENI Credentials]
+username:             vxl9440
+password:             asdzxc123
+remoteCodeDirectory:  /users/vxl9440
+OSVersion:            18.04
+
+[Local Utilities]
+RSPEC:                    C:/Users/vxl9440/Desktop/Miaoxin_Li/NS_Code/scripts/full_2Tier_MTP/rspec.xml
+privateKey:               C:/Users/vxl9440/Desktop/Miaoxin_Li/ssh_private_key/id_geni_ssh_rsa
+localWorkingDirectory:    C:/Users/vxl9440/Desktop/Miaoxin_Li/NS_Code
+#trafficGeneratorLocation: /home/abc1234/Desktop/MTP_abc1234/MTP_Automation/TrafficGenerator.py
+#endnodeInfoLocation:      /home/abc1234/Desktop/MTP_abc1234/MTP_Automation/addrInfo.cnf
+
+[MTP Utilities]
+localCodeDirectory:     C:/Users/vxl9440/Desktop/Miaoxin_Li/NS_Code/SRC
+rootRedundancy:         false
+includeVLANs:           false
+endNodesInTopology:     true
+endNodeTrafficSource:   endnode-0
+trafficToSend:          ICMP
+rootNode:               node-0
+
