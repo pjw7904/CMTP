@@ -42,7 +42,7 @@
 #define VID_LEN 64
 
 #define HELLO_TIMER 10
-#define DEAD_TIMER 25
+#define DEAD_TIMER 35
 
 #define DETECT_FAIL 1
 #define MISS_FAIL 2
