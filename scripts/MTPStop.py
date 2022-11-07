@@ -13,8 +13,8 @@ def main():
 
     print("\n+---------Number of Nodes to Stop: {0}--------+".format(len(GENIDict)))
     for currentRemoteNode in GENIDict:
-        if currentRemoteNode[0] != 'C':
-            orchestrateRemoteCommands(currentRemoteNode, GENIDict, stopMTP)
+        print(currentRemoteNode,"=>")
+        orchestrateRemoteCommands(currentRemoteNode, GENIDict, stopMTP)
     print("+-------------------------------------+\n")
 
 if __name__ == "__main__":

@@ -5,6 +5,9 @@ Desc: Automated configuration of remote nodes on GENI
 '''
 
 from GENIutils import uploadToGENINode, getConfigInfo, buildDictonary
+import json
+
+
 
 def main():
   # Grabbing configuration info from GENI config file
@@ -13,11 +16,12 @@ def main():
   codeSource = getConfigInfo("MTP Utilities", "localCodeDirectory")
   codeDestination = getConfigInfo("GENI Credentials", "remoteCodeDirectory")
 
+
   print("\n+---------Number of Nodes: {0}--------+".format(len(GENIDict)))
   for node in GENIDict:
-    if node[0] != 'C':
-        uploadToGENINode(node, GENIDict, codeSource, codeDestination)
-        print("{0} - Upload complete".format(node))
+      print(node,"=>")
+      uploadToGENINode(node, GENIDict, codeSource, codeDestination)
+      print("{0} - Upload complete".format(node))
 
 if __name__ == "__main__":
     main() # run main
