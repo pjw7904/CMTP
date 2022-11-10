@@ -1,13 +1,30 @@
 {
-	"tiers" : [
-		["L1","L2","L3","L4"],
-		["S11","S12","S13","S14"],
-		["S21","S22"]
-	],
-	"torEthPortName": {
-		"L1": "eth2",
-		"L2": "eth3",
-		"L3": "eth3",
-		"L4": "eth1"
-	}
+    "topology": {
+        "leaves": ["L11","L12","L21","L22","L31","L32","L41","L42"],
+		"leavesNetworkPortDict": {
+			"L11": "eth3",
+			"L12": "eth3",
+			"L21": "eth3",
+			"L22": "eth3",
+			"L31": "eth3",
+			"L32": "eth1",
+			"L41": "eth3",
+			"L42": "eth1"
+		},
+        "topSpines": ["SS1","SS2","SS3","SS4"],
+        "pods": [
+            {
+                "topSpines": ["S11","S12"]
+            },
+            {
+                "topSpines": ["S21","S22"]
+            },
+            {
+                "topSpines": ["S31","S32"]
+            },
+            {
+                "topSpines": ["S41","S42"]
+            }
+        ]
+    } 
 }

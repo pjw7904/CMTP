@@ -1,3 +1,4 @@
 *.docx
 SRC/.vscode
 notes.txt
+results/*
