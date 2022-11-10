@@ -66,6 +66,7 @@ def runMTPImplementation(GENIDict, workingDirectory):
     #startMTP = "cd ~/SRC ; sudo ./run -t {0}".format(runTime)
     startMTP = "cd ~/SRC; screen -dmS mtp -L -Logfile MTP_{0}.log bash -c 'sudo ./MTPstart -t {1}; exec bash'"
 
+    start_hello_time = round(time.time()*1000) + 3 * 60 * 1000
 
     for i in range(len(node_tier_list)):
         for currentRemoteNode in node_tier_list[i]:
@@ -83,6 +84,7 @@ def runMTPImplementation(GENIDict, workingDirectory):
                     cmdList.append('cd ~/SRC ; echo "isTopSpine:false" >> mtp_dcn.conf')
             
             cmdList.append('cd ~/SRC ; echo "tier:{0}" >> mtp_dcn.conf'.format(len(node_tier_list) - i))
+            cmdList.append('cd ~/SRC ; echo "startHelloTime:{0}" >> mtp_dcn.conf'.format(start_hello_time))
             if i == len(node_tier_list) - 1:
                 cmdList.append('cd ~/SRC ; echo "torEthPortName:{0}" >> mtp_dcn.conf'.format(data['topology']['leavesNetworkPortDict'][currentRemoteNode]))
             cmdList.append('sudo sysctl -w net.ipv4.ip_forward=0')

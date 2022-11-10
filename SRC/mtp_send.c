@@ -34,12 +34,11 @@ int dataSend(char* port_name, int payloadLen,unsigned char *inPayload) {
 	 * &socket_address is the destination address being used (has to be of struct sockaddr)
 	 *
 	 */
-	if (sendto(socketfd, t->frame, frame_size, 0, (struct sockaddr*) t->socket_address, sizeof(struct sockaddr_ll)) < 0) {
+	if (sendto(socketfd, t->frame, frame_size, MSG_NOSIGNAL, (struct sockaddr*) t->socket_address, sizeof(struct sockaddr_ll)) < 0) {
 		perror("Send error");
 		return -1;
 	}
 
-	//free Ethernet memory, close out the socket, and return a successful status code
 	return 0;
 }
 

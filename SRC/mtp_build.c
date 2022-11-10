@@ -135,7 +135,6 @@ void route_data_from_spine(char *current_port_name,unsigned char *payload, unsig
     if(payload_len){
         dataSend(current_port_name, payload_len, payload);
     }
-
 }
 
 void route_data_to_server(char *current_port_name,unsigned char *payload, unsigned int payload_len){

@@ -11,6 +11,7 @@
 bool is_tor = 0;
 bool is_top_spine = 0;
 uint8_t tier_num = -1;
+long int start_hello_time;
 uint8_t VID_octet = 3; 
 char network_port_name[ETH_LEN] = {'\0'}; 
 char my_VID[VID_LEN] = {'\0'};
@@ -29,6 +30,11 @@ char **temp_2d_array;
 char **temp_2d_port_array;
 
 extern int socketfd;
+
+int flag = 0;
+
+
+//--------------------//
 
 
 // handle each switch case
@@ -78,6 +84,14 @@ void readConf(){
 
     ptr[strcspn(ptr, "\n")] = 0;
     tier_num = atoi(ptr);
+
+    fgets(buff,255,fp);  // read fourth line of the file
+    ptr = strtok( buff, ":" );  
+    ptr = strtok( NULL, ":" );
+
+    ptr[strcspn(ptr, "\n")] = 0;
+    start_hello_time = strtol(ptr,NULL,10);
+    printf("start hello time = %ld\n",start_hello_time);
 
     // get network eth port for tor, the VID depend on this eth port
     if(is_tor){
@@ -132,7 +146,7 @@ int main(int argc, char **argv){
     }
 
     int sockMTP = 0;
-    int sockIP  = 0;
+    int sockIP  = 0; 
 
     // Create socket for MTP
     if ((sockMTP = socket(AF_PACKET, SOCK_RAW, htons (ETH_MTP_CTRL))) < 0){
@@ -182,10 +196,9 @@ int main(int argc, char **argv){
     int recv_len_IP = 0;
     unsigned char recvBuffer_IP[MAX_BUFFER_SIZE] = { '\0' };
     struct sockaddr_ll src_addr_IP;                                    // sockaddr_ll - a structure device-independent physical-layer address
-    socklen_t addr_len_IP = sizeof(src_addr_IP);  
+    socklen_t addr_len_IP = sizeof(src_addr_IP); 
 
-
-    for( ; ; ){
+    while( 1 ){
         recv_len_MTP = recvfrom(sockMTP, recvBuffer_MTP, MAX_BUFFER_SIZE, MSG_DONTWAIT, (struct sockaddr*) &src_addr_MTP, &addr_len_MTP); // listening MTP packet
 
         if(recv_len_MTP > 0){ // If the incoming frame has data, analyze it                                     
@@ -227,6 +240,8 @@ int main(int argc, char **argv){
                 case MTP_TYPE_RECOVER_UPDATE:
                     handle_receive_recover_update(recvBuffer_MTP, recvOnEtherPort); // recover message
                     break;
+                default:
+                    break;
             }
         } // end of if
 
@@ -245,8 +260,27 @@ int main(int argc, char **argv){
         }// end of if
 
 
+        if(get_milli_sec(&current_time) < start_hello_time){ // limit
+            continue;
+        }else{
+            if(!flag){
+                printf("\n\nStarting hello for all ports at time %lld\n\n",get_milli_sec(&current_time));
+                flag = 1;
+            }
+        }
+
+
+
+        // current_milli_sec = get_milli_sec(&current_time);
+        // if(current_milli_sec >= 1668009900000LL){ // break the while loop
+        //     break;
+        // }
+
+
+
+
         // send KEEP ALIVE and check the fail of the port
-        uint8_t working_port_num = get_all_ethernet_interface2(temp_2d_port_array);;
+        uint8_t working_port_num = get_all_ethernet_interface2(temp_2d_port_array);
         for(cp_temp = cp_head;cp_temp;cp_temp = cp_temp->next){
 
             if(!cp_temp->start) continue;
@@ -295,7 +329,7 @@ int main(int argc, char **argv){
                         }    
                     }
                 }else if(alive && cp_temp->fail_type == DETECT_FAIL){ // port come back
-                    printf("Port %s is back\n",cp_temp->port_name);
+                    printf("\nPort %s is back at time %lld\n",cp_temp->port_name,get_milli_sec(&current_time));
                     cp_temp->fail_type = 0;
                 }
 
@@ -329,7 +363,7 @@ int main(int argc, char **argv){
                             }
                         }        
                     }else{ // upstream port
-                    printf("Failed on upstream ports\n");
+                        printf("Failed on upstream ports\n");
                         if(!is_unreachable_and_reachable_empty(vop_head)){
                             printf("All upstream ports are not clean, sending blocked VID from downstream ports\n");
                             if((numOfVID = get_unreachable_VIDs_from_offered_ports(vop_head, temp_2d_array))){
@@ -359,6 +393,8 @@ int main(int argc, char **argv){
             }
         }
     } // end of while 
+
+    printf("\nProgram ended at time %lld\n",get_milli_sec(&current_time));
 }
 
 void handle_receive_hello_NR(unsigned char* recvBuffer_MTP, char* recvOnEtherPort){

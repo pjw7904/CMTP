@@ -7,8 +7,13 @@ struct control_port* add_to_control_port_table(struct control_port* cp_head, cha
         cp_head = build_control_port(new_port_name);
     }else{
         struct control_port* cp_temp = cp_head;
+
+        if(!strcmp(cp_head->port_name,new_port_name)){
+            return cp_head;
+        }
+
         while(cp_temp->next){
-            if(!strcmp(cp_temp->port_name,new_port_name)){
+            if(!strcmp(cp_temp->next->port_name,new_port_name)){
                 return cp_head;
             }
             cp_temp = cp_temp->next;
@@ -94,8 +99,12 @@ struct VID* add_to_VID_table(struct VID* VID_head, char* VID_name){
         VID_head = build_VID(VID_name);
     }else{
         struct VID* VID_temp = VID_head;
+        if(!strcmp(VID_head->VID_name,VID_name)){
+            return VID_head;
+        }
+
         while(VID_temp->next){
-            if(!strcmp(VID_temp->VID_name,VID_name)){
+            if(!strcmp(VID_temp->next->VID_name,VID_name)){
                 return VID_head;
             }
             VID_temp = VID_temp->next;
