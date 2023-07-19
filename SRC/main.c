@@ -105,12 +105,12 @@ void readConf(){
     fclose(fp);
 }
 
+
 int main(int argc, char **argv){
     time_t wait_time;
     int c;                                  
     while( (c = getopt( argc, argv, "ht:o:" )) != -1 )
     {
-        printf("number of argument = %d\n",argc);
          switch (c){
             case 'h':
                 fprintf(stderr, "usage: ./run [-o octect]\n\t-o octect: The octect number that is to be used to collect the VID. The default value is 2.\n");
@@ -132,14 +132,16 @@ int main(int argc, char **argv){
         }
     }
 
+
+
     // init 2d array
-    temp_2d_array = (char**) malloc(32);
+    temp_2d_array = (char**) malloc(32 * sizeof(char*));
     for(int j = 0;j < 10;j++){
         temp_2d_array[j] = (char*) malloc(VID_LEN);
         memset(temp_2d_array[j],'\0',VID_LEN);
     }
 
-    temp_2d_port_array = (char**) malloc(32);
+    temp_2d_port_array = (char**) malloc(32 * sizeof(char*));
     for(int j = 0;j < 10;j++){
         temp_2d_port_array[j] = (char*) malloc(VID_LEN);
         memset(temp_2d_port_array[j],'\0',VID_LEN);
@@ -161,7 +163,10 @@ int main(int argc, char **argv){
 	}
 
     readConf(); // read config file
-    get_VID_by_ethernet_interface(my_VID,network_port_name,VID_octet); // get VID from ethernet port
+
+    if(is_tor){
+        get_VID_by_ethernet_interface(my_VID,network_port_name,VID_octet); // get VID from ethernet port
+    }
 
     cp_head = get_all_ethernet_interface(); // return the head of a linked list that contains all ethernet interface
 
@@ -197,6 +202,9 @@ int main(int argc, char **argv){
     unsigned char recvBuffer_IP[MAX_BUFFER_SIZE] = { '\0' };
     struct sockaddr_ll src_addr_IP;                                    // sockaddr_ll - a structure device-independent physical-layer address
     socklen_t addr_len_IP = sizeof(src_addr_IP); 
+	
+	long long tot;
+	// const long int end_time = start_hello_time + 5 * 60 * 1000;
 
     while( 1 ){
         recv_len_MTP = recvfrom(sockMTP, recvBuffer_MTP, MAX_BUFFER_SIZE, MSG_DONTWAIT, (struct sockaddr*) &src_addr_MTP, &addr_len_MTP); // listening MTP packet
@@ -260,16 +268,20 @@ int main(int argc, char **argv){
         }// end of if
 
 
-        if(get_milli_sec(&current_time) < start_hello_time){ // limit
+		tot = get_milli_sec(&current_time);
+
+        if(tot < start_hello_time){ // limit
             continue;
-        }else{
-            if(!flag){
+        }
+        // else if(tot >= end_time){ // break
+		// 	break;
+        // }
+        else{
+			if(!flag){
                 printf("\n\nStarting hello for all ports at time %lld\n\n",get_milli_sec(&current_time));
                 flag = 1;
             }
-        }
-
-
+		}
 
         // current_milli_sec = get_milli_sec(&current_time);
         // if(current_milli_sec >= 1668009900000LL){ // break the while loop
