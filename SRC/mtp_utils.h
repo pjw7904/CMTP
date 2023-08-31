@@ -41,8 +41,8 @@
 #define ETH_LEN 8     // As in the name of the interface, not a 802.3 MAC Address
 #define VID_LEN 64
 
-#define HELLO_TIMER 10
-#define DEAD_TIMER 25
+#define HELLO_TIMER 100 // prior 10
+#define DEAD_TIMER 250 // prior 25
 
 #define DETECT_FAIL 1
 #define MISS_FAIL 2
