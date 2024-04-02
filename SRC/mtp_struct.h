@@ -1,14 +1,28 @@
 #ifndef MTP_STRUCT_H
 #define MTP_STRUCT_H
 
+/*
+ * Standard library imports.
+ */
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
-#include "mtp_utils.h"
+/*
+ * Custom MTP imports.
+ */
+#include "mtp_utils.h" // Access MTP constants.
 
+/*****************************************
+ * CONSTANTS 
+ *****************************************/
+// None
 
+/*****************************************
+ * STRUCTURES 
+ *****************************************/
 struct control_port{
     char port_name[ETH_LEN];  // Control Port Name
     int isUP;                     // true [1] (if UP) or false [2] (if DOWN)
@@ -38,7 +52,6 @@ struct reachable_table{
     struct VID* VID_head;
 };
 
-
 //8_1_2022 when I offer VIDs to my upper tier spines, I store them in this linked list and refer using the port number
 // A node can have multiple VIDs. It can thus offer multiple VIDs over a single port
 // I will store the multiple ports on which VIDs were offered by this node
@@ -51,8 +64,6 @@ struct VID_offered_port{
     struct control_port* cp;
     struct VID_offered_port *next;
 };
-
-
 
 // struct VID_Accepted_ports stores the accepted VIDs up link port
 struct VID_accepted_port{
@@ -70,18 +81,20 @@ struct notification{
     int operation_option;
     struct notification* next;
 };
- 
 
-
+/*****************************************
+ * FUNCTION PROTOTYPES 
+ *****************************************/
 // ====================== function for control_port ====================== //
 struct control_port* add_to_control_port_table(struct control_port* cp_head, char* new_port_name);
 struct control_port* build_control_port(char* new_port_name);
 struct control_port* find_control_port_by_name(struct control_port* cp_head, char* port_name);
 struct control_port* remove_control_port_by_name(struct control_port* cp_head, char* port_name);
 struct control_port* clear_control_port(struct control_port* node);
+struct control_port* initialInterfaceConfiguration(const char *computeSubnetIPAddress, char *computeSubnetIntfName, bool isLeaf);
 int is_all_down(struct control_port* cp_head);
 void print_control_port_table(struct control_port* cp_head);
-
+void init_socket_resources(int* socketfd, struct control_port* cp_head, char* network_port_name);
 
 
 // ====================== function for VID ====================== //
@@ -113,7 +126,6 @@ struct reachable_table* remove_reachable_VID_by_name(struct reachable_table* rt,
 void print_reachable_table(struct reachable_table* ut);
 
 
-
 // ====================== function for VID_offered_table ====================== //
 struct VID_offered_port* add_to_offered_table(struct VID_offered_port* vop_head, char* new_port_name, char* VID_name);
 struct VID_offered_port* build_VID_offered_port(char* new_port_name);
@@ -142,8 +154,6 @@ size_t get_all_accepted_VIDs(struct VID_accepted_port* vap_head, char **store_ar
 void print_accepted_table(struct VID_accepted_port* vap_head);
 
 
-
-
 // ====================== function for port_recover_notification ====================== //
 // those function for handling multiple failures occur in a same time, just leaf it alone
 struct notification* add_to_notification_table(struct notification* ntf_head, char* new_from_port_name, int table_option, int operation_option);
@@ -151,6 +161,5 @@ struct notification* build_notification(char* new_from_port_name, int table_opti
 struct notification* find_notification_by_from_port_name(struct notification* ntf_head, char* from_port_name);
 struct notification* remove_notification_by_from_port_name(struct notification* ntf_head, char* from_port_name);
 void print_notification_table(struct notification* ntf_head);
-
 
 #endif

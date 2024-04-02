@@ -138,7 +138,7 @@ long long get_milli_sec(struct timeval* current_time){
 }
 
 // initialize socket resource for each port
-void init_socket_resources(int* socketfd, struct control_port* cp_head,char* network_port_name){
+void init_socket_resources(int* socketfd, struct control_port* cp_head, char* network_port_name){
     struct control_port* cp_temp = cp_head;
     while(cp_temp){ // iterate each port
         struct ifreq if_idx;

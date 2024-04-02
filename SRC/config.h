@@ -1,6 +1,9 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+/*
+ * Standard library imports.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,8 +15,10 @@
 #include <netdb.h>
 #include <stdbool.h>
 
-#include "mtp_struct.h"
-#include "mtp_utils.h"
+/*
+ * Custom MTP imports.
+ */
+#include "mtp_utils.h" // Access MTP constants.
 
 /*****************************************
  * CONSTANTS 
@@ -39,6 +44,5 @@ typedef struct Config {
  * FUNCTION PROTOTYPES 
  *****************************************/
 void readConfigurationFile(Config *config);
-struct control_port* initialInterfaceConfiguration(const char *computeSubnetIPAddress, char *computeSubnetIntfName, bool isLeaf);
 
 #endif

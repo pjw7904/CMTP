@@ -1,10 +1,16 @@
+/*
+ * Standard library imports.
+ */
 #include <stdint.h>
 #include <stdlib.h>
 #include <time.h>
 
-#include "mtp_build.h"
+/*
+ * Custom MTP imports.
+ */
 #include "mtp_utils.h"
 #include "mtp_struct.h"
+#include "mtp_build.h"
 #include "config.h"
 
 /*
@@ -115,7 +121,7 @@ int main(int argc, char **argv)
         exit(1);
 	}
 
-    init_socket_resources(&socketfd,cp_head,mtpConfig.computeIntfName);
+    init_socket_resources(&socketfd, cp_head, mtpConfig.computeIntfName);
 
     printf("\nMy tier is %d\n", mtpConfig.tier); // print tier info
 

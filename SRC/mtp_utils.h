@@ -1,6 +1,9 @@
 #ifndef MTP_UTILS_H
 #define MTP_UTILS_H
 
+/*
+ * Standard library imports.
+ */
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -21,9 +24,14 @@
 #include <netinet/ether.h>
 #include <linux/if_packet.h>
 
+/*
+ * Custom MTP imports.
+ */
+// None
 
-
-
+/*****************************************
+ * CONSTANTS 
+ *****************************************/
 #define MTP_TYPE_HELLONR_MSG 1 // Hello message with no repsonse
 #define MTP_TYPE_HELLOWR_MSG 2 // Hello message with repsonse
 #define MTP_TYPE_JOIN_REQ 3 // Join Request 
@@ -35,22 +43,19 @@
 #define MTP_TYPE_RECOVER_UPDATE 9
 #define MTP_TYPE_START_HELLO 10
 
-
 #define MAX_BUFFER_SIZE 2048
 
-#define ETH_LEN 25     // As in the name of the interface, not a 802.3 MAC Address
+#define ETH_LEN 25 // Ethernet interface naming length (ex: eth1).
 #define VID_LEN 64
 
-#define HELLO_TIMER 100 // prior 10
-#define DEAD_TIMER 250 // prior 25
+#define HELLO_TIMER 100 // prior 10 in GENI.
+#define DEAD_TIMER 250 // prior 25 in GENI.
 
 #define DETECT_FAIL 1
 #define MISS_FAIL 2
 
-#define ETH_MTP_CTRL 0x8850 // MTP 802.3 Ethertype
-#define ETH_IP_CTRL 0x0800 
-
-
+#define ETH_MTP_CTRL 0x8850 // MTP Ethertype (custom, it is a currently unregistered value).
+#define ETH_IP_CTRL 0x0800  // IPv4 Ethertype (offical registered value).
 
 #define UNREACHABLE_OPTION 1
 #define REACHABLE_OPTION 0
@@ -58,7 +63,14 @@
 #define ADD_OPERATION 1
 #define REMOVE_OPERATION 0
 
+/*****************************************
+ * STRUCTURES 
+ *****************************************/
+// None
 
+/*****************************************
+ * FUNCTION PROTOTYPES 
+ *****************************************/
 /**
  * @brief Get the all ethernet interface2 object
  * 
@@ -76,7 +88,6 @@ uint8_t get_all_ethernet_interface2(char** dest);
  */
 void get_VID_by_ethernet_interface(char *dest, char *ethernet_interface_name, uint8_t octet);
 
-
 /**
  * @brief check whether the provided ethernet interface name is alive
  * 
@@ -87,7 +98,6 @@ void get_VID_by_ethernet_interface(char *dest, char *ethernet_interface_name, ui
  */
 int check_port_is_alive(char** port_array, uint8_t port_array_size,char* port_name);
 
-
 /**
  * @brief Get the tier from hello message payload
  * 
@@ -95,7 +105,6 @@ int check_port_is_alive(char** port_array, uint8_t port_array_size,char* port_na
  * @return uint8_t 
  */
 uint8_t get_tier_from_hello_message(char *payload_with_VID_data);
-
 
 /**
  * @brief append port number after VID
@@ -115,7 +124,6 @@ void append_port_number_after_VID(char *port_name, char *dest);
  */
 uint16_t extract_VID_from_receive_buff(char **VID_array, char *recvBuff_start_ptr,int with_debug);
 
-
 /**
  * @brief hashing algorithm for load balancing, for more https://en.wikipedia.org/wiki/Jenkins_hash_function
  * 
@@ -124,8 +132,6 @@ uint16_t extract_VID_from_receive_buff(char **VID_array, char *recvBuff_start_pt
  * @return uint32_t a hashcode
  */
 uint32_t jenkins_one_at_a_time_hash(uint8_t *key, size_t len);
-
-// uint16_t get_micro_sec();
 
 /**
  * @brief convert integer to string
@@ -143,15 +149,5 @@ size_t int_to_str(char *dest_storage, unsigned int number);
  * @return long long milli second
  */
 long long get_milli_sec(struct timeval* current_time);
-
-
-/**
- * @brief initialize socket resource for each port
- * 
- * @param socketfd socket file descriptor
- * @param cp_head control_port linked list
- * @param network_port_name network interface name of leaf
- */
-void init_socket_resources(int* socketfd, struct control_port* cp_head,char* network_port_name);
 
 #endif
