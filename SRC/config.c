@@ -5,7 +5,7 @@
 void readConfigurationFile(Config *config) 
 {
     // Access the configuration file.
-    FILE *fp = fopen("dcn.conf", "r");
+    FILE *fp = fopen("mtp.conf", "r");
     if (!fp) 
     {
         perror("\nFailed to open config file\n");
