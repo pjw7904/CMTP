@@ -3,29 +3,6 @@
 #include "mtp_struct.h"
 
 
-
-
-struct control_port* get_all_ethernet_interface(){
-    struct ifaddrs *addrs, *tmp;                                        
-    getifaddrs(&addrs);          // Purpose - get interface addresses
-    tmp = addrs;                 // initialize tmp to where addresses are stored
-
-    struct control_port* cp_head = NULL;
-    while( tmp ){
-        if ( tmp->ifa_addr && tmp->ifa_addr->sa_family == AF_PACKET ){   
-            
-            // collect working ports if the port don't equals ti 'lo' and 'eth0'
-            if((strcmp(tmp->ifa_name, "lo")) && (strcmp(tmp->ifa_name, "eth0")) && (tmp->ifa_flags & IFF_UP) != 0 ){
-                cp_head = add_to_control_port_table(cp_head, tmp->ifa_name);
-            }
-        }
-        tmp = tmp->ifa_next;
-    }
-    freeifaddrs(addrs);
-    return cp_head; // return the head of the linked list
-}
-
-
 // it is different from previous one, it stores the port data to a 2d array
 uint8_t get_all_ethernet_interface2(char** dest){
     uint8_t counter = 0;

@@ -5,39 +5,49 @@
 #include "mtp_build.h"
 #include "mtp_utils.h"
 #include "mtp_struct.h"
+#include "config.h"
 
-
-// config variables
-bool is_tor = 0;
-bool is_top_spine = 0;
-uint8_t tier_num = -1;
-long int start_hello_time;
-uint8_t VID_octet = 3; 
-char network_port_name[ETH_LEN] = {'\0'}; 
+/*
+ * Configuration variables
+ */ 
+Config mtpConfig = {0};
+uint8_t VID_octet = 3; // Third octet in IPv4 address, example: octet value C in address A.B.C.D
 char my_VID[VID_LEN] = {'\0'};
 
-// struct pointer
+/*
+ * Control Ports (MTP-speaking interfaces)
+ */
 struct control_port* cp_head = NULL;
 struct control_port* cp_temp = NULL;
+
+/*
+ * Offered Ports (interfaces sending VIDs to upper tier devices).
+ */
 struct VID_offered_port* vop_head = NULL;
 struct VID_offered_port* vop_temp = NULL;
+
+/*
+ * Accepted Ports (interfaces receiving VIDs from lower tier devices).
+ */
 struct VID_accepted_port* vap_head = NULL;
 struct VID_accepted_port* vap_temp = NULL;
 
+/*
+ * Current clock time.
+ */
+struct timeval current_time;
 
-struct timeval current_time; 
+/*
+ * VID storage.
+*/
 char **temp_2d_array;
 char **temp_2d_port_array;
 
 extern int socketfd;
 
-int flag = 0;
-
-
-//--------------------//
-
-
-// handle each switch case
+/*
+ * Function prototypes to handle each type of MTP message that can be received.
+*/
 void handle_receive_hello_NR(unsigned char* recvBuffer_MTP,char* recvOnEtherPort);
 void handle_receive_join_req(unsigned char* recvBuffer_MTP,char* recvOnEtherPort);
 void handle_receive_join_res(unsigned char* recvBuffer_MTP,char* recvOnEtherPort);
@@ -50,137 +60,82 @@ void handle_receive_recover_update(unsigned char* recvBuffer_MTP,char* recvOnEth
 void handle_receive_from_server(unsigned char* recvBuffer_IP,char* recvOnEtherPort, socklen_t recv_len_IP);
 
 
+int main(int argc, char **argv)
+{
+    /*
+        START-UP STAGE
+        -----------------------------------------------------------------------------
+        When the protocol starts up, process the inital configuration via the configuration file
+        and by defining MTP-speaking interfaces on the device. If the local system is a leaf node,
+        find the compute subnet interface name and use that to generate its root VID.
 
-void readConf(){
-    FILE *fp = fopen( "mtp_dcn.conf", "r" );
-    char buff[255];
+        Sockets and other necessary memory will be defined as well.
+        -----------------------------------------------------------------------------
+    */
+    readConfigurationFile(&mtpConfig);
 
-    fgets( buff, 255, fp ); // Read first line of the file
+    // Get the control ports and root VID (if they are a leaf) set up.
+    cp_head = initialInterfaceConfiguration(mtpConfig.computeIP, mtpConfig.computeIntfName, mtpConfig.isLeaf);
+    get_VID_by_ethernet_interface(my_VID,mtpConfig.computeIntfName, VID_octet);
 
-    // Get the string after "is_tor:"
-    char *ptr = strtok( buff, ":" );   // to split a string into a series of tokens based on a particular delimiter
-    ptr = strtok( NULL, ":" );
-
-    ptr[strcspn(ptr, "\n")] = 0; // Strip new line from string          
-    // calculates the length of the number of characters before the 1st occurrence of character present in both the string
-    if( strcmp("true", ptr) == 0){
-        is_tor = 1;
-    }
-
-    // Get is_top_spine config
-    fgets(buff,255,fp);  // read second line of the file
-    ptr = strtok( buff, ":" );  
-    ptr = strtok( NULL, ":" );
-
-    ptr[strcspn(ptr, "\n")] = 0;        
-    if( strcmp("true", ptr) == 0){
-        is_top_spine = 1;
-    }
-
-    //get tier number config
-    fgets(buff,255,fp);  // read third line of the file
-    ptr = strtok( buff, ":" );  
-    ptr = strtok( NULL, ":" );
-
-    ptr[strcspn(ptr, "\n")] = 0;
-    tier_num = atoi(ptr);
-
-    fgets(buff,255,fp);  // read fourth line of the file
-    ptr = strtok( buff, ":" );  
-    ptr = strtok( NULL, ":" );
-
-    ptr[strcspn(ptr, "\n")] = 0;
-    start_hello_time = strtol(ptr,NULL,10);
-    printf("start hello time = %ld\n",start_hello_time);
-
-    // get network eth port for tor, the VID depend on this eth port
-    if(is_tor){
-        fgets(buff,255,fp);  // read fourth line of the file
-        ptr = strtok( buff, ":" );  
-        ptr = strtok( NULL, ":" );
-
-        ptr[strcspn(ptr, "\n")] = 0;
-        strcpy(network_port_name,ptr);
-    }
-    fclose(fp);
-}
-
-int main(int argc, char **argv){
-    time_t wait_time;
-    int c;                                  
-    while( (c = getopt( argc, argv, "ht:o:" )) != -1 )
-    {
-        printf("number of argument = %d\n",argc);
-         switch (c){
-            case 'h':
-                fprintf(stderr, "usage: ./run [-o octect]\n\t-o octect: The octect number that is to be used to collect the VID. The default value is 2.\n");
-                exit(0);
-                break;
-            case 't': ; // NS What is the significance? to understand this code 
-                // Get current time and subtract start_time from current time
-                time_t start_time;
-                start_time = atoi(optarg); // getting the time here
-                time_t current_time; 
-                current_time = time(NULL); // Time since Epoch in seconds 
-                wait_time = start_time - current_time;
-                break;
-            case 'o':                                    // 'o' is used to get octect value for VID_octet
-                VID_octet = atoi(optarg);
-                break;
-            default:
-                break;
-        }
-    }
-
-    // init 2d array
+    // Initalize an array of empty strings of the max VID length to fill-in VIDs as necessary.
     temp_2d_array = (char**) malloc(32);
-    for(int j = 0;j < 10;j++){
+    for(int j = 0;j < 10;j++)
+    {
         temp_2d_array[j] = (char*) malloc(VID_LEN);
         memset(temp_2d_array[j],'\0',VID_LEN);
     }
 
     temp_2d_port_array = (char**) malloc(32);
-    for(int j = 0;j < 10;j++){
+    for(int j = 0;j < 10;j++)
+    {
         temp_2d_port_array[j] = (char*) malloc(VID_LEN);
         memset(temp_2d_port_array[j],'\0',VID_LEN);
     }
 
+    // Create a socket for MTP messages from MTP-speaking (tier 1+) neighbors.
     int sockMTP = 0;
-    int sockIP  = 0; 
-
-    // Create socket for MTP
-    if ((sockMTP = socket(AF_PACKET, SOCK_RAW, htons (ETH_MTP_CTRL))) < 0){
+    if((sockMTP = socket(AF_PACKET, SOCK_RAW, htons (ETH_MTP_CTRL))) < 0)
+    {
 		perror("Error: MTP socket()");
 		exit(1);
 	}
 
-    // Create socket for IP
-    if ((sockIP = socket(AF_PACKET, SOCK_RAW, htons (ETH_IP_CTRL))) < 0){
+    // Create socket for IPv4 packets from compute (tier 0) systems.
+    int sockIP  = 0; 
+    if((sockIP = socket(AF_PACKET, SOCK_RAW, htons (ETH_IP_CTRL))) < 0)
+    {
 		perror("Error: IP socket()");
 		exit(1);
 	}
 
-    readConf(); // read config file
-    get_VID_by_ethernet_interface(my_VID,network_port_name,VID_octet); // get VID from ethernet port
-
-    cp_head = get_all_ethernet_interface(); // return the head of a linked list that contains all ethernet interface
-
     // init send socket
-    if ((socketfd = socket(AF_PACKET, SOCK_RAW, IPPROTO_RAW)) == -1) {
+    if((socketfd = socket(AF_PACKET, SOCK_RAW, IPPROTO_RAW)) == -1) {
 		perror("Socket Error");
         exit(1);
 	}
 
-    init_socket_resources(&socketfd,cp_head,network_port_name);
+    init_socket_resources(&socketfd,cp_head,mtpConfig.computeIntfName);
 
-    printf("\nMy tier is %d\n",tier_num); // print tier info
+    printf("\nMy tier is %d\n", mtpConfig.tier); // print tier info
 
-    if(!is_tor){
-        if(is_top_spine) printf("\nI am top Spine, waiting for hello message\n"); 
-        else printf("\nI am a Spine, waiting for hello message\n"); 
-    }else{
+    if(!mtpConfig.isLeaf)
+    {
+        if(mtpConfig.isTopSpine) 
+        {
+            printf("\nI am top Spine, waiting for hello message\n"); 
+        }
+        else 
+        {
+            printf("\nI am a Spine, waiting for hello message\n"); 
+        }
+    }
+    
+    else
+    {
         strcpy(temp_2d_array[0],my_VID);
-        for(cp_temp = cp_head;cp_temp;cp_temp = cp_temp->next){ // send hello_NR from all ports
+        for(cp_temp = cp_head;cp_temp;cp_temp = cp_temp->next) // send hello_NR from all ports
+        { 
             send_hello_NR(cp_temp->port_name,temp_2d_array,1);
         }
     }
@@ -246,7 +201,7 @@ int main(int argc, char **argv){
         } // end of if
 
         
-        if(is_tor){ // only tor listen IP packet
+        if(mtpConfig.isLeaf){ // only tor listen IP packet
             recv_len_IP = recvfrom(sockIP, recvBuffer_IP, MAX_BUFFER_SIZE, MSG_DONTWAIT, (struct sockaddr*) &src_addr_IP, &addr_len_IP); // listening IP packet
             if(recv_len_IP > 0){
                 unsigned int tcIP = src_addr_IP.sll_ifindex;
@@ -258,25 +213,6 @@ int main(int argc, char **argv){
                 handle_receive_from_server(recvBuffer_IP,recvOnEtherPort, recv_len_IP); // send data msg here
             }
         }// end of if
-
-
-        if(get_milli_sec(&current_time) < start_hello_time){ // limit
-            continue;
-        }else{
-            if(!flag){
-                printf("\n\nStarting hello for all ports at time %lld\n\n",get_milli_sec(&current_time));
-                flag = 1;
-            }
-        }
-
-
-
-        // current_milli_sec = get_milli_sec(&current_time);
-        // if(current_milli_sec >= 1668009900000LL){ // break the while loop
-        //     break;
-        // }
-
-
 
 
         // send KEEP ALIVE and check the fail of the port
@@ -297,7 +233,7 @@ int main(int argc, char **argv){
                     printf("Stop sending and receiving message due to immediate failure\n");
                     printf("Detected a failure, shut down port %s at time %lld\n",cp_temp->port_name,get_milli_sec(&current_time));
 
-                    if(!is_top_spine && is_all_offered_ports_down(vop_head)){
+                    if(!mtpConfig.isTopSpine && is_all_offered_ports_down(vop_head)){
                         printf("All upstream ports down, sending all accepted VIDs from downstream ports\n");
                         numOfVID = get_all_accepted_VIDs(vap_head, temp_2d_array);
                         for(vap_temp = vap_head;vap_temp;vap_temp = vap_temp->next){
@@ -346,7 +282,7 @@ int main(int argc, char **argv){
                     printf("Stop sending and receiving message due to missing hello\n");
 
                     printf("Sending FAILURE UPDATE message from other working ports\n");
-                    if(!is_top_spine && is_all_offered_ports_down(vop_head)){
+                    if(!mtpConfig.isTopSpine && is_all_offered_ports_down(vop_head)){
                         printf("All upstream ports down, sending all accepted VIDs from downstream ports\n");
                         numOfVID = get_all_accepted_VIDs(vap_head, temp_2d_array);
                         for(vap_temp = vap_head;vap_temp;vap_temp = vap_temp->next){
@@ -398,7 +334,7 @@ int main(int argc, char **argv){
 }
 
 void handle_receive_hello_NR(unsigned char* recvBuffer_MTP, char* recvOnEtherPort){
-    if(get_tier_from_hello_message(recvBuffer_MTP + 15) >= tier_num){ // break the case if the message from higher tier
+    if(get_tier_from_hello_message(recvBuffer_MTP + 15) >= mtpConfig.tier){ // break the case if the message from higher tier
         // printf("\nReceived HelloNR from higher tier, ignored!\n");
         return;
     }
@@ -443,7 +379,7 @@ void handle_receive_join_res(unsigned char* recvBuffer_MTP,char* recvOnEtherPort
         vap_temp->cp = cp_temp;
     }
 
-    if(!is_top_spine){ // send helloNR from spine to next tier spine 
+    if(!mtpConfig.isTopSpine){ // send helloNR from spine to next tier spine 
         for(cp_temp = cp_head;cp_temp;cp_temp = cp_temp->next){
             send_hello_NR(cp_temp->port_name, temp_2d_array, numOfVID);
         }
@@ -491,8 +427,8 @@ void handle_receive_data_msg(unsigned char* recvBuffer_MTP,char* recvOnEtherPort
     cp_temp = find_control_port_by_name(cp_head,recvOnEtherPort);
     cp_temp->last_received_time = get_milli_sec(&current_time);
 
-    if(is_tor){ 
-        route_data_to_server(network_port_name,recvBuffer_MTP + 14 + 5,recv_len_MTP - 14 - 5); // hard code eth port
+    if(mtpConfig.isLeaf){ 
+        route_data_to_server(mtpConfig.computeIntfName,recvBuffer_MTP + 14 + 5,recv_len_MTP - 14 - 5); // hard code eth port
     }else{  // called a function 
         uint16_t src_VID = 0;
         uint16_t dest_VID = 0;
@@ -578,7 +514,7 @@ void handle_receive_keep_alive(char* recvOnEtherPort){
                 
                 //recover code here
                 if((vap_temp = find_accepted_port_by_name(vap_head,cp_temp->port_name))){ // downstream port recovered
-                    if(is_all_offered_ports_down(vop_head) && !is_top_spine){
+                    if(is_all_offered_ports_down(vop_head) && !mtpConfig.isTopSpine){
                         cp_temp->isUP = 1;
                         numOfVID = get_all_accepted_VIDs(vap_head, temp_2d_array);
                         for(vap_temp = vap_head;vap_temp;vap_temp = vap_temp->next){
@@ -602,7 +538,7 @@ void handle_receive_keep_alive(char* recvOnEtherPort){
                         cp_temp->isUP = 1;
                     }
                 }else{
-                    if(is_all_offered_ports_down(vop_head) && !is_tor){
+                    if(is_all_offered_ports_down(vop_head) && !mtpConfig.isLeaf){
                         cp_temp->isUP = 1;
                         for(vap_temp = vap_head;vap_temp;vap_temp = vap_temp->next){
                             if(vap_temp->cp->isUP){
@@ -664,7 +600,7 @@ void handle_receive_failure_update(unsigned char* recvBuffer_MTP,char* recvOnEth
             
         }
 
-        if(is_tor){
+        if(mtpConfig.isLeaf){
             printf("I am a tor, do nothing\n");
             printf("Finished processing failure message at time = %lld\n",get_milli_sec(&current_time));
             return;
@@ -720,7 +656,7 @@ void handle_receive_recover_update(unsigned char* recvBuffer_MTP,char* recvOnEth
             }
             int is_clean_after = is_unreachable_and_reachable_empty(vop_head);
 
-            if(is_tor){
+            if(mtpConfig.isLeaf){
                 return;
             }
 
@@ -744,7 +680,7 @@ void handle_receive_recover_update(unsigned char* recvBuffer_MTP,char* recvOnEth
             int is_clean_before = is_unreachable_and_reachable_empty(vop_head);
             vop_temp->rt->VID_head = clear_VID_table(vop_temp->rt->VID_head); // clear reachable table   
             
-            if(is_tor){
+            if(mtpConfig.isLeaf){
                 return;
             }
             int is_clean_after = is_unreachable_and_reachable_empty(vop_head);

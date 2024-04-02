@@ -38,7 +38,7 @@
 
 #define MAX_BUFFER_SIZE 2048
 
-#define ETH_LEN 8     // As in the name of the interface, not a 802.3 MAC Address
+#define ETH_LEN 25     // As in the name of the interface, not a 802.3 MAC Address
 #define VID_LEN 64
 
 #define HELLO_TIMER 100 // prior 10
@@ -57,15 +57,6 @@
 
 #define ADD_OPERATION 1
 #define REMOVE_OPERATION 0
-
-
-
-/**
- * @brief Get the all ethernet interface name
- * 
- * @return struct control_port linked list
- */
-struct control_port* get_all_ethernet_interface();
 
 
 /**
