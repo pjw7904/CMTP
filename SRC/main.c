@@ -44,7 +44,7 @@ struct VID_accepted_port* vap_temp = NULL;
 struct timeval current_time;
 
 /*
- * VID storage.
+ * Temporary storage for VIDs and interface names
 */
 char **temp_2d_array;
 char **temp_2d_port_array;
@@ -73,7 +73,7 @@ int main(int argc, char **argv)
         -----------------------------------------------------------------------------
         When the protocol starts up, process the inital configuration via the configuration file
         and by defining MTP-speaking interfaces on the device. If the local system is a leaf node,
-        find the compute subnet interface name and use that to generate its root VID.
+        find the compute subnet interface IPv4 address and use that to generate its root VID.
 
         Sockets and other necessary memory will be defined as well.
         -----------------------------------------------------------------------------
@@ -82,21 +82,28 @@ int main(int argc, char **argv)
 
     // Get the control ports and root VID (if they are a leaf) set up.
     cp_head = initialInterfaceConfiguration(mtpConfig.computeIP, mtpConfig.computeIntfName, mtpConfig.isLeaf);
-    get_VID_by_ethernet_interface(my_VID,mtpConfig.computeIntfName, VID_octet);
 
-    // Initalize an array of empty strings of the max VID length to fill-in VIDs as necessary.
-    temp_2d_array = (char**) malloc(32);
-    for(int j = 0;j < 10;j++)
+    // Leaf nodes are the root of the trees, they define the starting (root) VID.
+    if(mtpConfig.isLeaf)
     {
-        temp_2d_array[j] = (char*) malloc(VID_LEN);
-        memset(temp_2d_array[j],'\0',VID_LEN);
+        getRootVID(my_VID,mtpConfig.computeIntfName, VID_octet);
     }
 
-    temp_2d_port_array = (char**) malloc(32);
-    for(int j = 0;j < 10;j++)
+    // TO-DO: Ask Vincent about the magic number 32, and why is the port array being given VID_LEN?
+    // Initalize an array to add VIDs to as necessary.
+    temp_2d_array = malloc(32 * sizeof(char*));
+    for(int j = 0; j < 10; j++)
     {
-        temp_2d_port_array[j] = (char*) malloc(VID_LEN);
-        memset(temp_2d_port_array[j],'\0',VID_LEN);
+        temp_2d_array[j] = malloc(VID_LEN);
+        memset(temp_2d_array[j], '\0', VID_LEN);
+    }
+
+    // Initalize an array to add interface names to as necessary.
+    temp_2d_port_array = malloc(32 * sizeof(char*));
+    for(int j = 0; j < 10; j++)
+    {
+        temp_2d_port_array[j] = malloc(VID_LEN);
+        memset(temp_2d_port_array[j], '\0', VID_LEN);
     }
 
     // Create a socket for MTP messages from MTP-speaking (tier 1+) neighbors.

@@ -86,7 +86,7 @@ uint8_t get_all_ethernet_interface2(char** dest);
  * @param ethernet_interface_name which interface
  * @param octet get which byte of IP address as VID, 3rd byte is default
  */
-void get_VID_by_ethernet_interface(char *dest, char *ethernet_interface_name, uint8_t octet);
+void getRootVID(char *dest, char *ethernet_interface_name, uint8_t octet);
 
 /**
  * @brief check whether the provided ethernet interface name is alive

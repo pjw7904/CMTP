@@ -62,7 +62,7 @@ struct control_port* initialInterfaceConfiguration(const char *computeSubnetIPAd
 
     if(getifaddrs(&ifaddr) == -1) 
     {
-        perror("\nGetting network interfaces failed (getifaddrs)\n");
+        perror("\nGetting network interfaces failed (initialInterfaceConfiguration)\n");
         exit(EXIT_FAILURE);
     }
 

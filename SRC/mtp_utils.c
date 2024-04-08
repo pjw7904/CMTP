@@ -7,7 +7,13 @@
 uint8_t get_all_ethernet_interface2(char** dest){
     uint8_t counter = 0;
     struct ifaddrs *addrs, *tmp;                                        
-    getifaddrs(&addrs);          // Purpose - get interface addresses
+
+    if(getifaddrs(&addrs) == -1) 
+    {
+        perror("\nGetting network interfaces failed (get_all_ethernet_interface2)\n");
+        exit(EXIT_FAILURE);
+    }
+
     tmp = addrs;                 // initialize tmp to where addresses are stored
 
     while( tmp ){
@@ -34,7 +40,8 @@ int check_port_is_alive(char** port_array, uint8_t port_array_size, char* port_n
 }
 
 
-void get_VID_by_ethernet_interface(char *dest, char *ethernet_interface_name, uint8_t octet){
+void getRootVID(char *dest, char *ethernet_interface_name, uint8_t octet)
+{
     int fd;
     struct ifreq ifr;
 
