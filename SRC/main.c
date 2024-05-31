@@ -80,14 +80,31 @@ int main(int argc, char **argv)
     */
     readConfigurationFile(&mtpConfig);
 
-    // Get the control ports and root VID (if they are a leaf) set up.
-    cp_head = initialInterfaceConfiguration(mtpConfig.computeIP, mtpConfig.computeIntfName, mtpConfig.isLeaf);
+    // Use ifaddrs structure to loop through network interfaces on the system.
+    struct ifaddrs *ifaddr;
+    if(getifaddrs(&ifaddr) == -1) 
+    {
+        perror("\nGetting network interfaces failed (getifaddrs).\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Find if a compute interface exists on the node.
+    setComputeInterface(ifaddr, mtpConfig.computeIntfName, mtpConfig.isLeaf);
+
+    // Find the the control (MTP) interfaces on the node.
+    cp_head = setControlInterfaces(ifaddr, mtpConfig.computeIntfName, mtpConfig.isLeaf);
 
     // Leaf nodes are the root of the trees, they define the starting (root) VID.
     if(mtpConfig.isLeaf)
     {
-        getRootVID(my_VID,mtpConfig.computeIntfName, VID_octet);
+        getRootVID(my_VID, mtpConfig.computeIntfName, VID_octet);
+        printf("\nThe root VID: %s\n\n", my_VID);
     }
+
+    // Free the interface memory.
+    freeifaddrs(ifaddr);
+
+    printf("===MTP CONFIG INFO===\nisTopSpine = %d\ntier = %d\nisLeaf = %d\ncomputeIntfName = %s\n\n", mtpConfig.isTopSpine, mtpConfig.tier, mtpConfig.isLeaf);
 
     // TO-DO: Ask Vincent about the magic number 32, and why is the port array being given VID_LEN?
     // Initalize an array to add VIDs to as necessary.

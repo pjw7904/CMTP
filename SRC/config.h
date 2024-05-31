@@ -36,7 +36,6 @@ typedef struct Config {
     bool isLeaf;
     bool isTopSpine;
     uint8_t tier;
-    char computeIP[INET_ADDRSTRLEN];
     char computeIntfName[ETH_LEN];
 } Config;
 

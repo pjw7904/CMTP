@@ -12,7 +12,14 @@ void readConfigurationFile(Config *config)
         return;
     }
 
-    // Read through each line of the configuration file.
+    /* 
+        Read through each line of the configuration file.
+        A configuration line is in the format:
+
+        key:value
+
+        where the key and value is deliminated by a colon (:).
+    */
     char buff[255];
     while(fgets(buff, sizeof(buff), fp)) 
     {
@@ -24,6 +31,14 @@ void readConfigurationFile(Config *config)
         char *value = strtok(NULL, "\n"); 
         if(value == NULL) continue;
         
+        
+        // Determine if the MTP node is a leaf. 
+        if (strcmp(configName, "isLeaf") == 0) 
+        {
+            config->isLeaf = strcmp("true", value) == 0 ? 1 : 0;
+        } 
+        
+
         // Determine if the MTP node is a leaf. 
         if (strcmp(configName, "isLeaf") == 0) 
         {
@@ -31,90 +46,94 @@ void readConfigurationFile(Config *config)
         } 
         
         // Determine if the MTP node is a spine and at the top tier. 
-        else if (strcmp(configName, "isTopSpine") == 0) 
+        if(strcmp(configName, "isTopSpine") == 0) 
         {
-            config->isTopSpine = strcmp("true", value) == 0 ? 1 : 0;
+            config->isTopSpine = strcmp("True", value) == 0 ? true : false;
         } 
-       
+
        // Determine the tier of the MTP node. 
-        else if (strcmp(configName, "tier") == 0) 
+        else if(strcmp(configName, "tier") == 0) 
         {
-            config->tier = atoi(value);
+            // To-Do: Add error check for atoi conversion.
+            uint8_t tierValue = atoi(value);
+
+            config->tier = tierValue;
+
+            // Any tier that is not 1 (0 is the compute tier) is not a leaf
+            config->isLeaf = tierValue == 1 ? true : false;
         } 
-        
-        // Grab the IP address of the compute interface on a leaf.
-        else if (strcmp(configName, "computeIP") == 0 && config->isLeaf) 
-        {
-            strcpy(config->computeIP, value);
-        }
     }
 
     fclose(fp);
 }
 
-struct control_port* initialInterfaceConfiguration(const char *computeSubnetIPAddress, char *computeSubnetIntfName, bool isLeaf) 
+void setComputeInterface(struct ifaddrs *ifaddr, char *computeSubnetIntfName, bool isLeaf)
 {
-    
-    // Use ifaddrs structure to loop through network interfaces on the system.
-    struct ifaddrs *ifaddr, *ifa;
+    struct ifaddrs *ifa;
     int family;
-    char host[NI_MAXHOST];
 
-    if(getifaddrs(&ifaddr) == -1) 
+    // The node is not a leaf, thus it is a spine and does not have a compute interface.
+    if(!isLeaf)
     {
-        perror("\nGetting network interfaces failed (initialInterfaceConfiguration)\n");
-        exit(EXIT_FAILURE);
+        strcpy(computeSubnetIntfName, "None");
+        printf("\nNode is a spine, no compute interface.\n");
+        return;
     }
+
+    // Iterate over the network interfaces.
+    for(ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) 
+    {
+        if(ifa->ifa_addr == NULL) continue;
+
+        // AF_INET = IPv4 addressing.
+        family = ifa->ifa_addr->sa_family;
+
+        // If the interface is active/up, contains an IPv4 address, and is not named eth0 or lo (loopback).
+        if(family == AF_INET && strcmp(ifa->ifa_name, "eth0") != 0 && strcmp(ifa->ifa_name, "lo") != 0 && (ifa->ifa_flags & IFF_UP) != 0)
+        {
+            // Copy the compute subnet interface name.
+            strcpy(computeSubnetIntfName, ifa->ifa_name);
+            printf("\nInterface %s is set as the compute port.\n", ifa->ifa_name);
+        }
+
+        printf("Interface: %s\n", ifa->ifa_name);
+    }
+}
+
+struct control_port* setControlInterfaces(struct ifaddrs *ifaddr, char *computeSubnetIntfName, bool isLeaf) 
+{
+    // Use ifaddrs structure to loop through network interfaces on the system.
+    struct ifaddrs *ifa;
+    int family;
 
     // Define the head of the MTP-speaking interfaces linked list (AKA the control ports).
     struct control_port* cp_head = NULL;
 
     // Loop through each network interface on the system.
-    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) 
+    for(ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) 
     {
-        // if the interface is null, skip it.
-        if (ifa->ifa_addr == NULL)
-        {
-            continue;
-        }
+        if(ifa->ifa_addr == NULL) continue;
 
         // Grab the interface family (AF_INET = IPv4 addressing, AF_PACKET = raw layer 2).
         family = ifa->ifa_addr->sa_family;
 
-        // Check to make sure the interface name is not eth0 or loopback and it.
-        if (strcmp(ifa->ifa_name, "eth0") != 0 && strcmp(ifa->ifa_name, "lo") != 0 && (ifa->ifa_flags & IFF_UP) != 0) 
+        // If the interface is active/up, and is not named eth0 or lo (loopback).
+        if(family == AF_PACKET && 
+            strcmp(ifa->ifa_name, "eth0") != 0 && 
+            strcmp(ifa->ifa_name, "lo") != 0 &&
+            strcmp(ifa->ifa_name, "lo") != 0 && 
+            (ifa->ifa_flags & IFF_UP) != 0) 
         {
-            // If the interface contains an IPv4 address and is it a leaf, analyze it.
-            if (isLeaf && family == AF_INET) 
+            // If the node is a leaf and this is the compute interface, skip it.
+            if(isLeaf && strcmp(ifa->ifa_name, computeSubnetIntfName) != 0)
             {
-                // Get a string copy of the IPv4 address.
-                int s = getnameinfo(ifa->ifa_addr, sizeof(struct sockaddr_in),
-                                    host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
-                if (s != 0) 
-                {
-                    printf("\ngetnameinfo() failed: %s\n", gai_strerror(s));
-                    exit(EXIT_FAILURE);
-                }
-
-                // Check if the IPv4 address matches the compute subnet IPv4 address.
-                if (computeSubnetIPAddress && strcmp(host, computeSubnetIPAddress) == 0) 
-                {
-                    // Copy the compute subnet interface name.
-                    strcpy(computeSubnetIntfName, ifa->ifa_name);
-                    printf("\nAdded interface %s as a compute port.\n", ifa->ifa_name);
-                }
+                continue;
             }
 
-            else if(family == AF_PACKET)
-            {
-                cp_head = add_to_control_port_table(cp_head, ifa->ifa_name);
-                printf("\nAdded interface %s as a control port.\n", ifa->ifa_name);
-            }
+            cp_head = add_to_control_port_table(cp_head, ifa->ifa_name);
+            printf("\nAdded interface %s as a control port.\n", ifa->ifa_name);
         } 
     }
-
-    // Free the ifaddr memory.
-    freeifaddrs(ifaddr);
 
     // return the head of the linked list.
     return cp_head;
