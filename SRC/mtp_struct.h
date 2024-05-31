@@ -91,7 +91,7 @@ struct control_port* build_control_port(char* new_port_name);
 struct control_port* find_control_port_by_name(struct control_port* cp_head, char* port_name);
 struct control_port* remove_control_port_by_name(struct control_port* cp_head, char* port_name);
 struct control_port* clear_control_port(struct control_port* node);
-struct control_port* initialInterfaceConfiguration(char *computeSubnetIntfName, bool isLeaf);
+struct control_port* setControlInterfaces(struct ifaddrs *ifaddr, char *computeSubnetIntfName, bool isLeaf);
 int is_all_down(struct control_port* cp_head);
 void print_control_port_table(struct control_port* cp_head);
 void init_socket_resources(int* socketfd, struct control_port* cp_head, char* network_port_name);

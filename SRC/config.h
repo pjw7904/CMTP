@@ -43,5 +43,6 @@ typedef struct Config {
  * FUNCTION PROTOTYPES 
  *****************************************/
 void readConfigurationFile(Config *config);
+void setComputeInterface(struct ifaddrs *ifaddr, char *computeSubnetIntfName, bool isLeaf);
 
 #endif
