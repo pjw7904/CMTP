@@ -95,8 +95,6 @@ void setComputeInterface(struct ifaddrs *ifaddr, char *computeSubnetIntfName, bo
             strcpy(computeSubnetIntfName, ifa->ifa_name);
             printf("\nInterface %s is set as the compute port.\n", ifa->ifa_name);
         }
-
-        printf("Interface: %s\n", ifa->ifa_name);
     }
 }
 
@@ -121,11 +119,10 @@ struct control_port* setControlInterfaces(struct ifaddrs *ifaddr, char *computeS
         if(family == AF_PACKET && 
             strcmp(ifa->ifa_name, "eth0") != 0 && 
             strcmp(ifa->ifa_name, "lo") != 0 &&
-            strcmp(ifa->ifa_name, "lo") != 0 && 
             (ifa->ifa_flags & IFF_UP) != 0) 
         {
             // If the node is a leaf and this is the compute interface, skip it.
-            if(isLeaf && strcmp(ifa->ifa_name, computeSubnetIntfName) != 0)
+            if(isLeaf && strcmp(ifa->ifa_name, computeSubnetIntfName) == 0)
             {
                 continue;
             }
