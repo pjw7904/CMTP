@@ -29,7 +29,6 @@ char my_VID[VID_LEN] = {'\0'};
  * Control Ports (MTP-speaking interfaces)
  */
 struct control_port* cp_head = NULL;
-struct control_port* cp_temp = NULL;
 
 void print_interfaces(struct ifaddrs *ifaddr) 
 {
@@ -71,11 +70,12 @@ int main(int argc, char **argv)
     if(mtpConfig.isLeaf)
     {
         getRootVID(my_VID, mtpConfig.computeIntfName, VID_octet);
-        printf("\nThe root VID: %s", my_VID);
+        printf("\nThe root VID: %s\n", my_VID);
     }
 
-    // Always free ifaddrs!
+    // Free ifaddrs and the control ports used
     freeifaddrs(ifaddr);
+    cp_head = clear_control_port(cp_head);
 
     return 0;
 }
