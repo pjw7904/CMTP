@@ -30,6 +30,11 @@ char my_VID[VID_LEN] = {'\0'};
  */
 struct control_port* cp_head = NULL;
 
+/*
+ * Compute Ports (IPv4-speaking interfaces)
+ */
+compute_interface *compute_intf_head = NULL;
+
 void print_interfaces(struct ifaddrs *ifaddr) 
 {
     struct ifaddrs *ifa;
@@ -47,8 +52,6 @@ int main(int argc, char **argv)
     // Read the file and populate the config
     readConfigurationFile(&mtpConfig);
 
-    printf("===MTP CONFIG INFO===\nisTopSpine = %d\ntier = %d\nisLeaf = %d\n\n", mtpConfig.isTopSpine, mtpConfig.tier, mtpConfig.isLeaf);
-
     // Use ifaddrs structure to loop through network interfaces on the system.
     struct ifaddrs *ifaddr;
     if(getifaddrs(&ifaddr) == -1) 
@@ -60,22 +63,27 @@ int main(int argc, char **argv)
     // Print the interfaces to stdout.
     print_interfaces(ifaddr);
 
-    // Find if a compute interface exists on the node.
-    setComputeInterface(ifaddr, mtpConfig.computeIntfName, mtpConfig.isLeaf);
-
-    // Get the control ports and root VID (if they are a leaf) set up.
+    // Find if a compute interface exists on the node and then find the control (MTP) interfaces.
+    compute_intf_head = setComputeInterfaces(ifaddr, mtpConfig.computeIntfName, mtpConfig.isLeaf);
     cp_head = setControlInterfaces(ifaddr, mtpConfig.computeIntfName, mtpConfig.isLeaf);
 
     // Leaf nodes are the root of the trees, they define the starting (root) VID.
     if(mtpConfig.isLeaf)
     {
         getRootVID(my_VID, mtpConfig.computeIntfName, VID_octet);
-        printf("\nThe root VID: %s\n", my_VID);
+        printf("\nThe root VID: %s\n\n", my_VID);
     }
 
-    // Free ifaddrs and the control ports used
+    // Print the tables out.
+    printf("===MTP START-UP CONFIG===tier = %d\nisTopSpine = %d\nisLeaf = %d\ncomputeIntfName = %s\n\n", 
+            mtpConfig.tier, mtpConfig.isTopSpine, mtpConfig.isLeaf, mtpConfig.computeIntfName);
+    print_control_port_table(cp_head);
+    printComputeInterfaces(compute_intf_head);
+
+    // Free all of the memory
     freeifaddrs(ifaddr);
     cp_head = clear_control_port(cp_head);
+    compute_intf_head = freeComputeInterfaces(compute_intf_head);
 
     return 0;
 }
