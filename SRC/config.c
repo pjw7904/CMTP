@@ -67,17 +67,20 @@ void readConfigurationFile(Config *config)
     fclose(fp);
 }
 
-void setComputeInterface(struct ifaddrs *ifaddr, char *computeSubnetIntfName, bool isLeaf)
+compute_interface* setComputeInterfaces(struct ifaddrs *ifaddr, char *computeSubnetIntfName, bool isLeaf)
 {
     struct ifaddrs *ifa;
     int family;
+
+    // Define the head of the Non-MTP-speaking interfaces linked list (AKA the IPv4 compute ports).
+    compute_interface *ci_head = NULL;
 
     // The node is not a leaf, thus it is a spine and does not have a compute interface.
     if(!isLeaf)
     {
         strcpy(computeSubnetIntfName, "None");
         printf("\nNode is a spine, no compute interface.\n");
-        return;
+        return NULL;
     }
 
     // Iterate over the network interfaces.
@@ -89,9 +92,14 @@ void setComputeInterface(struct ifaddrs *ifaddr, char *computeSubnetIntfName, bo
         family = ifa->ifa_addr->sa_family;
 
         // If the interface is active/up, contains an IPv4 address, and is not named eth0 or lo (loopback).
-        if(family == AF_INET && strcmp(ifa->ifa_name, "eth0") != 0 && strcmp(ifa->ifa_name, "lo") != 0 && (ifa->ifa_flags & IFF_UP) != 0)
+        if(family == AF_INET && 
+            strcmp(ifa->ifa_name, "eth0") != 0 && 
+            strcmp(ifa->ifa_name, "lo") != 0 && 
+            (ifa->ifa_flags & IFF_UP) != 0)
         {
-            // Copy the compute subnet interface name.
+            // Mark the interface name as part of the compute interface table, and then copy the interface name seperately.
+            ci_head = addComputeInteface(ci_head, ifa->ifa_name);
+
             strcpy(computeSubnetIntfName, ifa->ifa_name);
             printf("\nInterface %s is set as the compute port.\n", ifa->ifa_name);
         }

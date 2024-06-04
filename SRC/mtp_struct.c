@@ -92,6 +92,77 @@ void print_control_port_table(struct control_port* cp_head){
     }
 }
 
+// ============================================ function for compute interfaces ============================================ //
+compute_interface* addComputeInteface(compute_interface* ci_head, char* new_port_name)
+{
+    // If there are no compute interfaces added, add it as the first one (head).
+    if(ci_head == NULL)
+    {
+        ci_head = buildComputeInterface(new_port_name);
+    }
+
+    else
+    {
+        compute_interface* ci_temp = ci_head;
+
+        // If the new interface name is the same as the head interface name, nothing to do.
+        if(!strcmp(ci_head->port_name, new_port_name))
+        {
+            return ci_head;
+        }
+
+        // If the new interface is the same as a non-head interface name, nothing to do. Loop through the names to check.
+        while(ci_temp->next)
+        {
+            if(!strcmp(ci_temp->next->port_name, new_port_name))
+            {
+                return ci_head;
+            }
+
+            ci_temp = ci_temp->next;
+        }
+
+        ci_temp->next = buildComputeInterface(new_port_name);
+    }
+
+    return ci_head;
+}
+
+compute_interface* buildComputeInterface(char* new_port_name)
+{
+    compute_interface *new_node = malloc(sizeof(compute_interface));
+
+    strcpy(new_node->port_name, new_port_name);
+    new_node->next = NULL;
+
+    return new_node;
+}
+
+void printComputeInterfaces(compute_interface *head)
+{
+    compute_interface *ci_temp = head;
+
+    printf("--- Compute Interfaces ---\n");
+    
+    while(ci_temp)
+    {
+        printf("%s\n",ci_temp->port_name);
+        ci_temp = ci_temp->next;
+    }
+}
+
+compute_interface* freeComputeInterfaces(compute_interface *interface)
+{
+    if(interface == NULL)
+    {
+        return NULL;
+    } 
+
+    freeComputeInterfaces(interface->next);
+    free(interface);
+
+    return NULL;
+}
 
 // ============================================ function for VID ============================================ //
 struct VID* add_to_VID_table(struct VID* VID_head, char* VID_name){

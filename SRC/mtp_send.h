@@ -33,7 +33,7 @@
 #define HEADER_SIZE		14
 
 /* Function Prototypes */
-int dataSend(char*,int,unsigned char *);                              
-// int dataSend(char *, uint8_t *, int);                              
+int dataSend(char*, int, unsigned char *);
+int computeSend(char* port_name, int payloadLen, unsigned char *inPayload);                          
 
 #endif

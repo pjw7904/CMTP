@@ -30,12 +30,16 @@ uint8_t get_all_ethernet_interface2(char** dest){
 }
 
 
-int check_port_is_alive(char** port_array, uint8_t port_array_size, char* port_name){
-    for(uint8_t i = 0;i < port_array_size;i++){
-        if(!strcmp(port_array[i],port_name)){ // if found, return true
+int check_port_is_alive(char** port_array, uint8_t port_array_size, char* port_name)
+{
+    for(uint8_t i = 0; i < port_array_size; i++)
+    {
+        if(!strcmp(port_array[i],port_name))
+        { // if found, return true
             return 1;
         }
     }
+
     return 0; // can't found, return false
 }
 
@@ -145,9 +149,13 @@ long long get_milli_sec(struct timeval* current_time){
 }
 
 // initialize socket resource for each port
-void init_socket_resources(int* socketfd, struct control_port* cp_head, char* network_port_name){
+void initalizeControlSocketResources(int* socketfd, struct control_port* cp_head)
+{
     struct control_port* cp_temp = cp_head;
-    while(cp_temp){ // iterate each port
+
+    // iterate each control interface.
+    while(cp_temp)
+    {
         struct ifreq if_idx;
 	    struct ifreq if_mac;
         char ifName[IFNAMSIZ];
@@ -172,11 +180,8 @@ void init_socket_resources(int* socketfd, struct control_port* cp_head, char* ne
             eh->ether_dhost[i] = 0xFF;
         }
 
-        if(!strcmp(cp_temp->port_name, network_port_name)){
-            eh->ether_type = htons(ETH_IP_CTRL);
-        }else{
-            eh->ether_type = htons(ETH_MTP_CTRL);
-        }
+        // Ethertype set to 0x8850, which is the custom MTP type.
+        eh->ether_type = htons(ETH_MTP_CTRL);
 
         memcpy(cp_temp->frame, eh, sizeof(struct ether_header));
 
@@ -192,5 +197,74 @@ void init_socket_resources(int* socketfd, struct control_port* cp_head, char* ne
 
         free(eh);
         cp_temp = cp_temp->next;
+    }
+}
+
+// initialize socket resource for each port
+void initalizeComputeSocketResources(int *socketfd, compute_interface *ci_head)
+{
+    compute_interface *ci_temp = ci_head;
+
+    // iterate each compute interface.
+    while(ci_temp)
+    {
+        struct ifreq if_idx;
+	    struct ifreq if_mac;
+        
+        // Make a copy of the interface name
+        char ifName[IFNAMSIZ];
+        strcpy(ifName, ci_temp->port_name);
+        
+        // Structures defining the Ethernet II header
+        struct ether_header *eh = (struct ether_header*)calloc(1, sizeof(struct ether_header));
+        struct sockaddr_ll* socket_address = (struct sockaddr_ll*) calloc(1,sizeof(struct sockaddr_ll));
+        
+        memset(&if_idx, 0, sizeof(struct ifreq));
+	    strncpy(if_idx.ifr_name, ifName, IFNAMSIZ - 1);
+        if(ioctl(*socketfd, SIOCGIFINDEX, &if_idx) < 0)
+        {
+            perror("SIOCGIFINDEX - Misprint Compatibility");
+        }
+
+        memset(&if_mac, 0, sizeof(struct ifreq));
+	    strncpy(if_mac.ifr_name, ifName, IFNAMSIZ - 1);
+        if(ioctl(*socketfd, SIOCGIFHWADDR, &if_mac) < 0)
+        {
+            perror("SIOCGIFHWADDR - Either interface is not correct or disconnected");
+        }
+
+        // Copy source MAC address.
+        for(int i = 0;i < 6;i++)
+        {
+            eh->ether_shost[i] = ((uint8_t *) &if_mac.ifr_hwaddr.sa_data)[i];
+        }
+
+        // Set destination MAC address. Right now, default to the broadcast address, but this needs to not be included in later versions.
+        for(int i = 0;i < 6;i++)
+        {
+            eh->ether_dhost[i] = 0xFF;
+        }
+
+        // Ethertype set to 0x0800, which is the IPv4 type.
+        eh->ether_type = htons(ETH_IP_CTRL);
+
+        // Copy the Ethernet II header to the interface structure so that traffic being sent from this interface already has it set.
+        memcpy(ci_temp->frame, eh, sizeof(struct ether_header));
+
+        socket_address->sll_ifindex = if_idx.ifr_ifindex;
+        socket_address->sll_halen = ETH_ALEN;
+
+        for(int i = 0;i < 6;i++)
+        {
+            socket_address->sll_addr[i] = 0xFF;
+        }
+
+        // Copy the starting socket address for the same reason as the Ethernet II header.
+        ci_temp->socket_address = socket_address;
+
+        // Free Ethernet header memory
+        free(eh);
+
+        ci_temp = ci_temp->next;
     }
 }

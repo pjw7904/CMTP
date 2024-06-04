@@ -23,8 +23,14 @@ char my_VID[VID_LEN] = {'\0'};
 /*
  * Control Ports (MTP-speaking interfaces)
  */
-struct control_port* cp_head = NULL;
-struct control_port* cp_temp = NULL;
+struct control_port *cp_head = NULL;
+struct control_port *cp_temp = NULL;
+
+/*
+ * Compute Ports (IPv4-speaking interfaces)
+ */
+compute_interface *compute_intf_head = NULL;
+compute_interface *compute_intf_temp = NULL;
 
 /*
  * Offered Ports (interfaces sending VIDs to upper tier devices).
@@ -88,10 +94,8 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    // Find if a compute interface exists on the node.
-    setComputeInterface(ifaddr, mtpConfig.computeIntfName, mtpConfig.isLeaf);
-
-    // Find the the control (MTP) interfaces on the node.
+    // Find if a compute interface exists on the node and then find the control (MTP) interfaces.
+    compute_intf_head = setComputeInterfaces(ifaddr, mtpConfig.computeIntfName, mtpConfig.isLeaf);
     cp_head = setControlInterfaces(ifaddr, mtpConfig.computeIntfName, mtpConfig.isLeaf);
 
     // Leaf nodes are the root of the trees, they define the starting (root) VID.
@@ -104,10 +108,11 @@ int main(int argc, char **argv)
     // Free the interface memory.
     freeifaddrs(ifaddr);
 
-    printf("===MTP CONFIG INFO===\nisTopSpine = %d\ntier = %d\nisLeaf = %d\ncomputeIntfName = %s\n\n", mtpConfig.isTopSpine, mtpConfig.tier, mtpConfig.isLeaf);
+    printf("===MTP START-UP CONFIG===tier = %d\nisTopSpine = %d\nisLeaf = %d\ncomputeIntfName = %s\n\n", 
+            mtpConfig.tier, mtpConfig.isTopSpine, mtpConfig.isLeaf, mtpConfig.computeIntfName);
 
     // TO-DO: Ask Vincent about the magic number 32, and why is the port array being given VID_LEN?
-    // Initalize an array to add VIDs to as necessary.
+    // Initalize an array to add VIDs to as necessary (this also is used for ports sometimes?).
     temp_2d_array = malloc(32 * sizeof(char*));
     for(int j = 0; j < 10; j++)
     {
@@ -145,55 +150,88 @@ int main(int argc, char **argv)
         exit(1);
 	}
 
-    init_socket_resources(&socketfd, cp_head, mtpConfig.computeIntfName);
+    /*
+        Builds the Ethernet II header used for each control interface when sending a message. 
+        For each control interface, the header is generated as:
+        [FF:FF:FF:FF:FF:FF] | [SMAC] | [0x8850]
 
-    printf("\nMy tier is %d\n", mtpConfig.tier); // print tier info
+        Where the destination MAC is set to FF:FF:FF:FF:FF:FF (the broadcast address),
+        SMAC is the MAC address of the interface, and 0x8850 is the ethertype of MTP.
+    */
+    initalizeControlSocketResources(&socketfd, cp_head);
 
+    // If this node is a spine, nothing to do right now, wait for a lower-tier device to annouce they can communicate via MTP.
     if(!mtpConfig.isLeaf)
     {
         if(mtpConfig.isTopSpine) 
         {
-            printf("\nI am top Spine, waiting for hello message\n"); 
+            printf("\nI am a top-tier Spine, waiting for hello message\n"); 
         }
         else 
         {
             printf("\nI am a Spine, waiting for hello message\n"); 
         }
     }
-    
+
+    // If this node is a leaf, start the VID propagation process by informing tier-2 spines it is ready to communicate.
     else
     {
-        strcpy(temp_2d_array[0],my_VID);
-        for(cp_temp = cp_head;cp_temp;cp_temp = cp_temp->next) // send hello_NR from all ports
+        /*
+            Initalize the resources for compute interfaces as well.
+            The Ethernet II header results in the following:
+
+            [FF:FF:FF:FF:FF:FF] | [SMAC] | [0x0800]
+
+            Right now, the inital control and compute resource allocation is almost identical, but the
+            compute function needs to be updated later to take advantage of ARP as opposed to all F's for the destination. 
+            For now, it is kept as is for further testing.
+        */
+        initalizeComputeSocketResources(&socketfd, compute_intf_head);
+
+        // Store the root VID in the tempoprary array to be sent in the initial messages.
+        strcpy(temp_2d_array[0], my_VID);
+
+        // Begin telling tier 2 spines about the existence of this leaf via Hello No-Response (Hello NR) messages 
+        for(cp_temp = cp_head; cp_temp; cp_temp = cp_temp->next)
         { 
             send_hello_NR(cp_temp->port_name,temp_2d_array,1);
         }
     }
 
-    char recvOnEtherPort[ETH_LEN] = {'\0'};
-    uint16_t numOfVID = 0;
+    char recvOnEtherPort[ETH_LEN] = {'\0'}; // Interface name a message is received on.
+    uint16_t numOfVID = 0; // Used to count the number of VIDs on a given interface and table.
 
+    // Prep MTP message socket.
     int recv_len_MTP = 0;
     unsigned char recvBuffer_MTP[MAX_BUFFER_SIZE] = { '\0' };
-    struct sockaddr_ll src_addr_MTP;                                    // sockaddr_ll - a structure device-independent physical-layer address
-    socklen_t addr_len_MTP = sizeof(src_addr_MTP);                          //  socklen_t - an unsigned opaque integral type of length of at least 32 bits
+    struct sockaddr_ll src_addr_MTP; // sockaddr_ll - a structure device-independent physical-layer address
+    socklen_t addr_len_MTP = sizeof(src_addr_MTP); //  socklen_t - an unsigned opaque integral type of length of at least 32 bits
 
+    // Prep IPv4 packet socket.
     int recv_len_IP = 0;
     unsigned char recvBuffer_IP[MAX_BUFFER_SIZE] = { '\0' };
-    struct sockaddr_ll src_addr_IP;                                    // sockaddr_ll - a structure device-independent physical-layer address
+    struct sockaddr_ll src_addr_IP; // sockaddr_ll - a structure device-independent physical-layer address
     socklen_t addr_len_IP = sizeof(src_addr_IP); 
 
-    while( 1 ){
+    // Receive and send messages until the MTP implementation is stopped.
+    while(1)
+    {
         recv_len_MTP = recvfrom(sockMTP, recvBuffer_MTP, MAX_BUFFER_SIZE, MSG_DONTWAIT, (struct sockaddr*) &src_addr_MTP, &addr_len_MTP); // listening MTP packet
 
-        if(recv_len_MTP > 0){ // If the incoming frame has data, analyze it                                     
+        // If the incoming frame has data, parse and analyze it.
+        if(recv_len_MTP > 0)
+        {                                   
             unsigned int tcIP = src_addr_MTP.sll_ifindex;
             if_indextoname(tcIP, recvOnEtherPort);     // if_indextoname - map a network interface index to its corresponding name,built in fn.
                 // change name new_node - new connection    
-            if ((strcmp(recvOnEtherPort, "eth0")) == 0){ 
-                continue; // if message comes on eth0 - do not process
+
+            // If the message comes on eth0, do not process.
+            if ((strcmp(recvOnEtherPort, "eth0")) == 0)
+            { 
+                continue;
             }
 
+            // Bytes 0-13 are the Ethernet II header, byte 14 starts the MTP header, whatever type it might be.
             uint8_t MSGType = recvBuffer_MTP[14];
 
             switch(MSGType)
@@ -211,51 +249,59 @@ int main(int argc, char **argv)
                     handle_receive_join_ack(recvBuffer_MTP, recvOnEtherPort); // join acknowledge
                     break;
                 case MTP_TYPE_START_HELLO:
-                    handle_receive_start_hello(recvOnEtherPort); // start sending hello
+                    handle_receive_start_hello(recvOnEtherPort);              // start sending hello
                     break;
-                case MTP_TYPE_DATA_MSG: // send data msg here
+                case MTP_TYPE_DATA_MSG:                                       // compute node data
                     handle_receive_data_msg(recvBuffer_MTP, recvOnEtherPort,recv_len_MTP); 
                     break;
                 case MTP_TYPE_KEEP_ALIVE:
-                    handle_receive_keep_alive(recvOnEtherPort); // keep alive message
+                    handle_receive_keep_alive(recvOnEtherPort);               // keep alive message
                     break;
                 case MTP_TYPE_FAILURE_UPDATE: 
                     handle_receive_failure_update(recvBuffer_MTP, recvOnEtherPort,recv_len_MTP); // failure message
                     break;
                 case MTP_TYPE_RECOVER_UPDATE:
-                    handle_receive_recover_update(recvBuffer_MTP, recvOnEtherPort); // recover message
+                    handle_receive_recover_update(recvBuffer_MTP, recvOnEtherPort);              // recover message
                     break;
                 default:
                     break;
             }
-        } // end of if
+        }
 
-        
-        if(mtpConfig.isLeaf){ // only tor listen IP packet
-            recv_len_IP = recvfrom(sockIP, recvBuffer_IP, MAX_BUFFER_SIZE, MSG_DONTWAIT, (struct sockaddr*) &src_addr_IP, &addr_len_IP); // listening IP packet
-            if(recv_len_IP > 0){
+        // Only the leaf listens to compute device IPv4 traffic.
+        if(mtpConfig.isLeaf)
+        {
+            recv_len_IP = recvfrom(sockIP, recvBuffer_IP, MAX_BUFFER_SIZE, MSG_DONTWAIT, (struct sockaddr*) &src_addr_IP, &addr_len_IP);
+            
+            if(recv_len_IP > 0)
+            {
                 unsigned int tcIP = src_addr_IP.sll_ifindex;
-                if_indextoname(tcIP, recvOnEtherPort);     // if_indextoname - map a network interface index to its corresponding name,built in fn.
-                if (!strcmp(recvOnEtherPort, "eth0")){ // if message comes on eth0 - do not process
+                
+                if_indextoname(tcIP, recvOnEtherPort); // Map a network interface index to its corresponding name.
+
+                // If the message comes on eth0, do not process.
+                if (!strcmp(recvOnEtherPort, "eth0"))
+                { 
                     continue; 
                 }
                 
                 handle_receive_from_server(recvBuffer_IP,recvOnEtherPort, recv_len_IP); // send data msg here
             }
-        }// end of if
+        }
 
-
-        // send KEEP ALIVE and check the fail of the port
+        // Send KEEP ALIVE and check the fail of the port
         uint8_t working_port_num = get_all_ethernet_interface2(temp_2d_port_array);
-        for(cp_temp = cp_head;cp_temp;cp_temp = cp_temp->next){
-
+        for(cp_temp = cp_head;cp_temp;cp_temp = cp_temp->next)
+        {
             if(!cp_temp->start) continue;
 
             if(cp_temp->last_received_time){ // run the code in this block after received first keep alive message
 
                 int alive = check_port_is_alive(temp_2d_port_array,working_port_num,cp_temp->port_name); // immediate detect
-
-                if(!alive && cp_temp->isUP){ // port fail
+                
+                // port fail
+                if(!alive && cp_temp->isUP)
+                { 
                     // from up to down
                     cp_temp->isUP = 0;
                     cp_temp->fail_type = DETECT_FAIL;
@@ -294,7 +340,11 @@ int main(int argc, char **argv)
                             printf("Some upstream ports are clean, DONE\n");
                         }    
                     }
-                }else if(alive && cp_temp->fail_type == DETECT_FAIL){ // port come back
+                }
+
+                // port come back
+                else if(alive && cp_temp->fail_type == DETECT_FAIL)
+                { 
                     printf("\nPort %s is back at time %lld\n",cp_temp->port_name,get_milli_sec(&current_time));
                     cp_temp->fail_type = 0;
                 }
@@ -302,6 +352,7 @@ int main(int argc, char **argv)
                 if(cp_temp->fail_type) continue;
 
                 long long received_time_diff = get_milli_sec(&current_time) - cp_temp->last_received_time;
+
                 if(received_time_diff >= DEAD_TIMER && cp_temp->isUP){ // check whether exceed dead timer
                     printf("Last receive time is %lld\n",cp_temp->last_received_time);
                     printf("--------Disabled for port %s due to a missing KEEP ALIVE at time %lld--------\n",cp_temp->port_name,get_milli_sec(&current_time));
@@ -451,15 +502,34 @@ void handle_receive_start_hello(char* recvOnEtherPort){
 }
 
 
-void handle_receive_data_msg(unsigned char* recvBuffer_MTP,char* recvOnEtherPort, socklen_t recv_len_MTP){
-    printf("\n Data message Received\n");
-    
-    cp_temp = find_control_port_by_name(cp_head,recvOnEtherPort);
+void handle_receive_data_msg(unsigned char* recvBuffer_MTP,char* recvOnEtherPort, socklen_t recv_len_MTP)
+{
+    printf("\nData message Received\n");
+
+    // Find the control port that received the MTP data message and when it last received an MTP message / keep-alive.
+    cp_temp = find_control_port_by_name(cp_head, recvOnEtherPort);
     cp_temp->last_received_time = get_milli_sec(&current_time);
 
-    if(mtpConfig.isLeaf){ 
-        route_data_to_server(mtpConfig.computeIntfName,recvBuffer_MTP + 14 + 5,recv_len_MTP - 14 - 5); // hard code eth port
-    }else{  // called a function 
+    // If this node is a leaf, strip the MTP header from the message and forward it to the appropriate server.
+    if(mtpConfig.isLeaf)
+    { 
+        /* 
+            Currently, the manually-set computeIntfName is used because only one compute interface is used for testing, saving resources and time. 
+
+            The payload breakdown is as follows.
+            recvBuffer_MTP:
+                Ethernet II (14 bytes) - bytes 0-13
+                MTP Data Header (5 bytes) - bytes 14-18
+                payload - bytes 19+
+
+            Thus, starting at buffer position 0 (recvBuffer_MTP), +19 (14 + 5) gets you to the payload, which is normally IPv4 header.
+        */
+        route_data_to_server(mtpConfig.computeIntfName, recvBuffer_MTP + 14 + 5, recv_len_MTP - 14 - 5);
+    }
+
+    // If this node is a spine, forward the message to either any available spine at the next tier, or to a specific spine at the tier below. 
+    else
+    { 
         uint16_t src_VID = 0;
         uint16_t dest_VID = 0;
 
@@ -743,7 +813,6 @@ void handle_receive_from_server(unsigned char* recvBuffer_IP,char* recvOnEtherPo
 
     char dest_VID_str[VID_LEN];
     int_to_str(dest_VID_str, dest_VID);
-
 
     printf("Src VID = %d\n",src_VID);
     printf("Dest VID = %d\n",dest_VID);

@@ -23,7 +23,7 @@
 /*****************************************
  * STRUCTURES 
  *****************************************/
-struct control_port{
+struct control_port {
     char port_name[ETH_LEN];  // Control Port Name
     int isUP;                     // true [1] (if UP) or false [2] (if DOWN)
     int start;
@@ -32,10 +32,17 @@ struct control_port{
     long long last_sent_time;
     int continue_count;
     struct notification* ntf_head;
-    struct control_port *next;
     uint8_t frame[MAX_BUFFER_SIZE];
     struct sockaddr_ll* socket_address;
+    struct control_port *next;
 };
+
+typedef struct compute_interface {
+    char port_name[ETH_LEN];        // Interface name
+    uint8_t frame[MAX_BUFFER_SIZE]; // Starting frame
+    struct sockaddr_ll* socket_address;
+    struct compute_interface *next;
+} compute_interface;
 
 
 // 8_1_22 this link list will store the list of VIDs offered on a single port
@@ -94,8 +101,15 @@ struct control_port* clear_control_port(struct control_port* node);
 struct control_port* setControlInterfaces(struct ifaddrs *ifaddr, char *computeSubnetIntfName, bool isLeaf);
 int is_all_down(struct control_port* cp_head);
 void print_control_port_table(struct control_port* cp_head);
-void init_socket_resources(int* socketfd, struct control_port* cp_head, char* network_port_name);
+void initalizeControlSocketResources(int* socketfd, struct control_port* cp_head);
 
+// ====================== function for compute interfaces ====================== //
+compute_interface *addComputeInteface(compute_interface *ci_head, char *new_port_name);
+compute_interface *buildComputeInterface(char *new_port_name);
+compute_interface *setComputeInterfaces(struct ifaddrs *ifaddr, char *computeSubnetIntfName, bool isLeaf);
+compute_interface *freeComputeInterfaces(compute_interface *interface);
+void initalizeComputeSocketResources(int *socketfd, compute_interface *ci_head);
+void printComputeInterfaces(compute_interface *head);
 
 // ====================== function for VID ====================== //
 struct VID* add_to_VID_table(struct VID* VID_head, char* VID_name);

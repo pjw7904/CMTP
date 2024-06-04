@@ -137,14 +137,18 @@ void route_data_from_spine(char *current_port_name,unsigned char *payload, unsig
     }
 }
 
-void route_data_to_server(char *current_port_name,unsigned char *payload, unsigned int payload_len){
-    printf("Sending data message from tor to server on %s \n",current_port_name);
-    if(payload_len){
-        dataSend(current_port_name, payload_len, payload);
+void route_data_to_server(char *computePortName, unsigned char *payload, unsigned int payload_len)
+{
+    printf("Sending data message from tor to server on %s \n",computePortName);
+
+    if(payload_len)
+    {
+        computeSend(computePortName, payload_len, payload);
     }
 }
 
-int send_keep_alive(char *current_port_name){
+int send_keep_alive(char *current_port_name)
+{
     payload[0] = MTP_TYPE_KEEP_ALIVE;
     return dataSend(current_port_name,1,payload);
 }
