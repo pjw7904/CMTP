@@ -73,7 +73,7 @@ compute_interface* setComputeInterfaces(struct ifaddrs *ifaddr, char *computeSub
     int family;
 
     // Define the head of the Non-MTP-speaking interfaces linked list (AKA the IPv4 compute ports).
-    compute_interface *ci_head = NULL;
+    compute_interface *compute_intf_head = NULL;
 
     // The node is not a leaf, thus it is a spine and does not have a compute interface.
     if(!isLeaf)
@@ -98,12 +98,15 @@ compute_interface* setComputeInterfaces(struct ifaddrs *ifaddr, char *computeSub
             (ifa->ifa_flags & IFF_UP) != 0)
         {
             // Mark the interface name as part of the compute interface table, and then copy the interface name seperately.
-            ci_head = addComputeInteface(ci_head, ifa->ifa_name);
+            compute_intf_head = addComputeInteface(compute_intf_head, ifa->ifa_name);
 
             strcpy(computeSubnetIntfName, ifa->ifa_name);
             printf("\nInterface %s is set as the compute port.\n", ifa->ifa_name);
         }
     }
+    
+    // return the head of the linked list.
+    return compute_intf_head;
 }
 
 struct control_port* setControlInterfaces(struct ifaddrs *ifaddr, char *computeSubnetIntfName, bool isLeaf) 
