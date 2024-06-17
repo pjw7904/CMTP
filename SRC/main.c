@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <time.h>
+#include <signal.h>
 
 /*
  * Custom MTP imports.
@@ -71,9 +72,20 @@ void handle_receive_failure_update(unsigned char* recvBuffer_MTP,char* recvOnEth
 void handle_receive_recover_update(unsigned char* recvBuffer_MTP,char* recvOnEtherPort);
 void handle_receive_from_server(unsigned char* recvBuffer_IP,char* recvOnEtherPort, socklen_t recv_len_IP);
 
+/*
+ * Function prototype to handle SIGINT (SIGINT) and stopping MTP.
+*/
+void handleSIGINT(int sig);
 
 int main(int argc, char **argv)
 {
+    // Set up a SIGINT (CTRL + C) handler to gracefully stop running MTP.
+    if(signal(SIGINT, handleSIGINT) == SIG_ERR)
+    {
+        perror("signal");
+        exit(EXIT_FAILURE);
+    }
+
     /*
         START-UP STAGE
         -----------------------------------------------------------------------------
@@ -97,19 +109,22 @@ int main(int argc, char **argv)
     // Find if a compute interface exists on the node and then find the control (MTP) interfaces.
     compute_intf_head = setComputeInterfaces(ifaddr, mtpConfig.computeIntfName, mtpConfig.isLeaf);
     cp_head = setControlInterfaces(ifaddr, mtpConfig.computeIntfName, mtpConfig.isLeaf);
+    freeifaddrs(ifaddr); // Free the interface memory.
+
+    printf("===MTP START-UP CONFIG===\ntier = %d\nisTopSpine = %d\nisLeaf = %d\ncomputeIntfName = %s\n", 
+            mtpConfig.tier, mtpConfig.isTopSpine, mtpConfig.isLeaf, mtpConfig.computeIntfName);
 
     // Leaf nodes are the root of the trees, they define the starting (root) VID.
     if(mtpConfig.isLeaf)
     {
         getRootVID(my_VID, mtpConfig.computeIntfName, VID_octet);
-        printf("\nThe root VID: %s\n\n", my_VID);
+        printf("Root VID: %s\n\n", my_VID);
     }
 
-    // Free the interface memory.
-    freeifaddrs(ifaddr);
-
-    printf("===MTP START-UP CONFIG===tier = %d\nisTopSpine = %d\nisLeaf = %d\ncomputeIntfName = %s\n\n", 
-            mtpConfig.tier, mtpConfig.isTopSpine, mtpConfig.isLeaf, mtpConfig.computeIntfName);
+    else
+    {
+        printf("Root VID: None\n\n"); 
+    }
 
     // TO-DO: Ask Vincent about the magic number 32, and why is the port array being given VID_LEN?
     // Initalize an array to add VIDs to as necessary (this also is used for ports sometimes?).
@@ -408,10 +423,16 @@ int main(int argc, char **argv)
                     cp_temp->last_sent_time = get_milli_sec(&current_time); // update send time
                 }
             }
-        }
-    } // end of while 
+        } // End of control port status check for loop.
+    } // End of infinite while loop.     
+} // End of main function.
 
-    printf("\nProgram ended at time %lld\n",get_milli_sec(&current_time));
+
+void handleSIGINT(int sig)
+{
+    printf("\nMTP STOPPED [%lld]\n",get_milli_sec(&current_time));
+    // To-Do: Add memory-freeing calls here (control and compute interfaces, temp arrays, etc.)
+    exit(0);
 }
 
 void handle_receive_hello_NR(unsigned char* recvBuffer_MTP, char* recvOnEtherPort){

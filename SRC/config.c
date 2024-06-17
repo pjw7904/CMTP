@@ -1,3 +1,6 @@
+/*
+ * Custom MTP imports.
+ */
 #include "config.h"
 #include "mtp_utils.h"
 #include "mtp_struct.h"
