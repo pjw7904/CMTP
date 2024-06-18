@@ -430,8 +430,26 @@ int main(int argc, char **argv)
 
 void handleSIGINT(int sig)
 {
-    printf("\nMTP STOPPED [%lld]\n",get_milli_sec(&current_time));
+    long long current_timestamp = get_milli_sec(&current_time);
+
+    printf("\nMTP STOPPED [%lld]\n",current_timestamp);
     // To-Do: Add memory-freeing calls here (control and compute interfaces, temp arrays, etc.)
+
+    FILE* fptr;
+    fptr = fopen("~/node_down.log", "w");
+
+    // checking if the file is opened successfully
+    if (fptr == NULL) 
+    {
+        printf("Stop time could not be written to log.\n");
+        exit(0);
+    }
+
+    // Write implementation downtime to log file
+    fprintf(fptr,"%lld\n", current_timestamp);
+    fflush(fptr);
+    fclose(fptr);
+
     exit(0);
 }
 
