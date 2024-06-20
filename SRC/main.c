@@ -436,7 +436,7 @@ void handleSIGINT(int sig)
     // To-Do: Add memory-freeing calls here (control and compute interfaces, temp arrays, etc.)
 
     FILE* fptr;
-    fptr = fopen("~/node_down.log", "w");
+    fptr = fopen("node_down.log", "w");
 
     // checking if the file is opened successfully
     if (fptr == NULL) 
