@@ -71,6 +71,8 @@ void handle_receive_keep_alive(char* recvOnEtherPort);
 void handle_receive_failure_update(unsigned char* recvBuffer_MTP,char* recvOnEtherPort, socklen_t recv_len_MTP);
 void handle_receive_recover_update(unsigned char* recvBuffer_MTP,char* recvOnEtherPort);
 void handle_receive_from_server(unsigned char* recvBuffer_IP,char* recvOnEtherPort, socklen_t recv_len_IP);
+void sort_array(char **temp_2d_array, int n);
+void array_display(char **array, int n);
 
 /*
  * Function prototype to handle SIGINT (SIGINT) and stopping MTP.
@@ -619,13 +621,19 @@ void handle_receive_data_msg(unsigned char* recvBuffer_MTP,char* recvOnEtherPort
                 return;
             }
 
+            // NS 
+            printf("\nCalling sort array when data message is received\n");
+            sort_array(temp_2d_array, available_offered_port_num);
+            // NS
+            
             uint32_t hash_code = jenkins_one_at_a_time_hash(hash_str,4);
             printf("VID can't be found in accepted port table, push up to next spine\n");
             printf("available_offered_port_num = %lu\n",available_offered_port_num);
             printf("Hash ascii value array = {%d,%d,%d,%d}, hash_code = %u\n", hash_str[0], hash_str[1], hash_str[2], hash_str[3],hash_code);
             printf("Mod pos index = %lu\n",hash_code % available_offered_port_num);
+            
             find_control_port_by_name(cp_head,temp_2d_array[hash_code % available_offered_port_num])->last_sent_time = get_milli_sec(&current_time);
-            // printf("Sent data message at time = %lld, update port sent time\n",t);
+            printf("\nSelected Port name %s\n", temp_2d_array[hash_code % available_offered_port_num]);
             route_data_from_spine(temp_2d_array[hash_code % available_offered_port_num],recvBuffer_MTP + 14,recv_len_MTP - 14);
         }
     }
@@ -865,6 +873,12 @@ void handle_receive_from_server(unsigned char* recvBuffer_IP,char* recvOnEtherPo
 
     uint32_t hash_code = jenkins_one_at_a_time_hash(hash_str,4); // hash src VID and dest VID
     size_t available_offered_port_num = count_available_offered_port(vop_head,temp_2d_array,dest_VID_str);
+
+    // NS 
+    printf("\nCalling sort array\n");
+    sort_array(temp_2d_array, available_offered_port_num);
+    // NS
+
     if(!available_offered_port_num){
         printf("Found 0 available port, packet dumped\n");
     }else{
@@ -877,3 +891,39 @@ void handle_receive_from_server(unsigned char* recvBuffer_IP,char* recvOnEtherPo
         route_data_from_tor_to_spine(temp_2d_array[hash_code % available_offered_port_num], src_VID, dest_VID, ip_header_with_payload, recv_len_IP - 14); 
     }
 }
+
+// NS
+void array_display(char **array, int num){
+int size_of_array = num;
+  for(int i=0; i<size_of_array; i++){
+    printf("%s ", array[i]);
+  }
+  printf("\n");
+}
+
+void sort_array(char **temp_2d_array, int num)
+{
+//display the original array
+int size_of_array = num;
+printf("Original array: ");
+array_display(temp_2d_array, size_of_array);
+
+char temp[30];
+  //Sort array using the Buuble Sort algorithm
+  for(int i=0; i<size_of_array; i++){
+    for(int j=0; j<size_of_array-1-i; j++){
+      if(strcmp(temp_2d_array[j], temp_2d_array[j+1]) > 0){
+        //swap array[j] and array[j+1]
+        strcpy(temp, temp_2d_array[j]);
+        strcpy(temp_2d_array[j], temp_2d_array[j+1]);
+        strcpy(temp_2d_array[j+1], temp);
+      }
+    }
+  }
+  //display the sorted array
+  printf("Sorted Array: ");
+  array_display(temp_2d_array, size_of_array);
+
+  return;  
+}
+// NS
